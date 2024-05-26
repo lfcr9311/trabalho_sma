@@ -17,12 +17,13 @@ class GeradorPseudo:
         return self.x / self.m
 
 class Fila:
-    def __init__(self, env, nome, capacidade, atendimento, prob_routing=None, prob_saida=None):
+    def __init__(self, env, nome, capacidade, atendimento, prob_routing=None, destinos=None, prob_saida=None):
         self.env = env
         self.nome = nome
         self.capacidade = capacidade
         self.atendimento = atendimento
         self.prob_routing = prob_routing
+        self.destinos = destinos
         self.prob_saida = prob_saida
         self.resource = simpy.Resource(env, capacidade)
         self.wait_times = []
@@ -80,20 +81,16 @@ def cliente(env, nome, fila, clientes_atendidos):
         tempo_total_espera = env.now - chegada_fila
         fila.add_wait_time(tempo_total_espera)
         
-        if fila.nome == 'fila1':
-            destino = random.choices(['fila2', 'fila3'], fila.prob_routing)[0]
-            if destino == 'fila2':
-                env.process(cliente(env, nome, fila2, clientes_atendidos))
-            else:
-                env.process(cliente(env, nome, fila3, clientes_atendidos))
-        elif fila.nome == 'fila2':
-            destino = random.choices(['saida', 'fila1'], fila.prob_saida)[0]
-            if destino == 'fila1':
-                env.process(cliente(env, nome, fila1, clientes_atendidos))
-        elif fila.nome == 'fila3':
-            destino = random.choices(['saida', 'fila1'], fila.prob_saida)[0]
-            if destino == 'fila1':
-                env.process(cliente(env, nome, fila1, clientes_atendidos))
+        if fila.prob_routing and fila.destinos:
+            destino_nome = random.choices(fila.destinos, fila.prob_routing)[0]
+            if destino_nome != 'saida':
+                destino_fila = filas[destino_nome]
+                env.process(cliente(env, nome, destino_fila, clientes_atendidos))
+        elif fila.prob_saida and fila.destinos:
+            destino_nome = random.choices(fila.destinos, fila.prob_saida)[0]
+            if destino_nome != 'saida':
+                destino_fila = filas[destino_nome]
+                env.process(cliente(env, nome, destino_fila, clientes_atendidos))
 
 def main():
     with open('parametros.yml', 'r') as file:
@@ -101,49 +98,35 @@ def main():
     
     env = simpy.Environment()
     
-    global fila1, fila2, fila3
-    fila1 = Fila(env, 'fila1', float('inf'), 
-                 (parametros['fila1']['atendimento_min'], parametros['fila1']['atendimento_max']),
-                 prob_routing=parametros['fila1']['prob_routing'])
+    global filas
+    filas = {}
     
-    fila2 = Fila(env, 'fila2', parametros['fila2']['capacidade'], 
-                 (parametros['fila2']['atendimento_min'], parametros['fila2']['atendimento_max']),
-                 prob_saida=parametros['fila2']['prob_saida'])
+    for nome_fila, props in parametros['filas'].items():
+        capacidade = props.get('capacidade', float('inf'))
+        atendimento = (props['atendimento_min'], props['atendimento_max'])
+        prob_routing = props.get('prob_routing')
+        destinos = props.get('destinos')
+        prob_saida = props.get('prob_saida')
+        fila = Fila(env, nome_fila, capacidade, atendimento, prob_routing, destinos, prob_saida)
+        filas[nome_fila] = fila
     
-    fila3 = Fila(env, 'fila3', parametros['fila3']['capacidade'], 
-                 (parametros['fila3']['atendimento_min'], parametros['fila3']['atendimento_max']),
-                 prob_saida=parametros['fila3']['prob_saida'])
-    
-    total_clientes = 100000
+    total_clientes = parametros['total_clientes']
     clientes_atendidos = [0]
     
     env.process(chegada(env, 'Cliente', 
-                        (parametros['fila1']['chegada_min'], parametros['fila1']['chegada_max']), fila1, total_clientes, clientes_atendidos))
+                        (parametros['filas']['fila1']['chegada_min'], parametros['filas']['fila1']['chegada_max']), filas['fila1'], total_clientes, clientes_atendidos))
     
     env.run()
     
     print("\nResultados da Simulação:")
-    print(f"1. Resultado da Fila 1: G/G/1, chegadas entre {parametros['fila1']['chegada_min']}..{parametros['fila1']['chegada_max']}, atendimento entre {parametros['fila1']['atendimento_min']}..{parametros['fila1']['atendimento_max']}:")
-    print(f"   Tempo médio de espera = {fila1.get_average_wait_time():.4f} minutos")
-    print(f"   Número de clientes perdidos: {fila1.num_perdidos}")
-    print(f"   Probabilidade de clientes atendidos: {(fila1.num_atendidos / total_clientes)*100} %")
-    print()
-
-    print(f"2. Resultado da Fila 2: G/G/2/5, atendimento entre {parametros['fila2']['atendimento_min']}..{parametros['fila2']['atendimento_max']}:")
-    print(f"   Tempo médio de espera = {fila2.get_average_wait_time():.4f} minutos")
-    print(f"   Número de clientes perdidos: {fila2.num_perdidos}")
-    print(f"   Probabilidade de clientes atendidos: {(fila2.num_atendidos / total_clientes)*100} %")
-    print()
-
-    print(f"3. Resultado da Fila 3: G/G/2/10, atendimento entre {parametros['fila3']['atendimento_min']}..{parametros['fila3']['atendimento_max']}:")
-    print(f"   Tempo médio de espera = {fila3.get_average_wait_time():.4f} minutos")
-    print(f"   Número de clientes perdidos: {fila3.num_perdidos}")
-    print(f"   Probabilidade de clientes atendidos: {(fila3.num_atendidos / total_clientes)*100} %")
-
-    print()
-    print()
-
-    print(f"4. Tempo total de simulação: {env.now:.2f} minutos")
+    for nome_fila, fila in filas.items():
+        print(f"Resultado da {nome_fila}:")
+        print(f"   Tempo médio de espera = {fila.get_average_wait_time():.4f} minutos")
+        print(f"   Número de clientes perdidos: {fila.num_perdidos}")
+        print(f"   Probabilidade de clientes atendidos: {(fila.num_atendidos / total_clientes)*100:.2f} %")
+        print()
+    
+    print(f"Tempo total de simulação: {env.now:.2f} minutos")
 
 if __name__ == '__main__':
     main()

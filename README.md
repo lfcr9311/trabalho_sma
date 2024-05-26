@@ -22,3 +22,12 @@ Montiel)
 ## Como trocar os parâmetros das filas
 
 - Para poder rodar o programa, mas com outros dados nas filas, basta apenas trocar os números dentro do arquivo parâmetros.yml. Importante lembrar que não pode alterar os outros dados dentro do arquivo, apenas os números.
+
+-O template da fila é:
+filax:
+    chegada_min:
+    chegada_max:
+    atendimento_min:
+    atendimento_max:
+    prob_routing: []
+    destinos: ['', '']

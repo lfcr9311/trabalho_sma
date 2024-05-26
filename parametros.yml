@@ -1,18 +1,21 @@
-fila1:
-  chegada_min: 2
-  chegada_max: 4
-  atendimento_min: 1
-  atendimento_max: 2
-  prob_routing: [0.5, 0.5]
-
-fila2:
-  capacidade: 2
-  atendimento_min: 4
-  atendimento_max: 8
-  prob_saida: [0.5, 0.5]
-
-fila3:
-  capacidade: 2
-  atendimento_min: 5
-  atendimento_max: 15
-  prob_saida: [0.5, 0.5]
+total_clientes: 100000
+filas:
+  fila1:
+    chegada_min: 2
+    chegada_max: 4
+    atendimento_min: 1
+    atendimento_max: 2
+    prob_routing: [0.8, 0.2]
+    destinos: ['fila2', 'fila3']
+  fila2:
+    capacidade: 5
+    atendimento_min: 1
+    atendimento_max: 4
+    prob_saida: [0.2, 0.3, 0.5]
+    destinos: ['saida', 'fila1', 'fila3']
+  fila3:
+    capacidade: 10
+    atendimento_min: 5
+    atendimento_max: 15
+    prob_saida: [0.3, 0.7]
+    destinos: ['saida', 'fila2']
