@@ -3,6 +3,19 @@ import random
 import yaml
 import numpy as np
 
+class GeradorPseudo:
+    def __init__(self, semente, a, c, m):
+        self.semente = semente
+        self.a = a
+        self.c = c
+        self.m = m
+        self.x = semente
+
+    def proximo(self):
+        self.x = (self.a * self.semente + self.c) % self.m
+        self.semente = self.x
+        return self.x / self.m
+
 class Fila:
     def __init__(self, env, nome, capacidade, atendimento, prob_routing=None, prob_saida=None):
         self.env = env
